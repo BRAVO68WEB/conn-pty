@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "paths": {
+      "@/*": ["src/*"]
+    },
+    "baseUrl": "./src",
+  }
+}
