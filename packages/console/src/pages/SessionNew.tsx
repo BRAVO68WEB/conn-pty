@@ -126,7 +126,7 @@ export default function SessionNew() {
       {/* Terminal */}
       <div className="flex-1 p-4">
         <Card className="h-full">
-          <CardContent className="p-0 h-full">
+          <CardContent className="p-2 h-full">
             <Terminal
               sessionId={session.id}
               className="h-full"

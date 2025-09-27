@@ -4,6 +4,7 @@ import { Client, ConnectConfig } from "ssh2";
 import { getSession, activateSession, endSession } from "../services/sessions.js";
 import { getServer } from "../services/servers.js";
 import { getCredential } from "../services/credentials.js";
+import { whoAmI } from "../libs/auth.js";
 
 const io = new Server({
   cors: {
@@ -68,6 +69,18 @@ io.on("connection", async (socket) => {
     socket.disconnect();
     return;
   }
+
+  // Resolve userId from cookie if possible
+  let userId: string | null = null;
+  try {
+    const headers = (socket.handshake as any)?.headers as Record<string, string> | undefined;
+    const cookieHeader = headers?.['cookie'] || headers?.['Cookie'] || '';
+    const token = cookieHeader.split(';').map(s => s.trim()).find(s => s.startsWith('access_token='))?.split('=')[1];
+    if (token) {
+      const user = await whoAmI(token);
+      userId = (user as any)?.sub || (user as any)?.email || null;
+    }
+  } catch {}
 
   // Activate or re-bind the session to this socket
   try {
@@ -143,7 +156,7 @@ io.on("connection", async (socket) => {
           
           sshStream = stream;
           
-          // Handle data from SSH server
+          // Handle data from SSH server (output)
           stream.on('data', (data: Buffer) => {
             socket.emit('ssh-data', data.toString());
           });
@@ -198,7 +211,7 @@ io.on("connection", async (socket) => {
     }
   });
   
-  // Handle terminal input from client
+  // Handle terminal input from client (buffer until Enter)
   socket.on('ssh-input', (data: string) => {
     if (sshStream) {
       sshStream.write(data);

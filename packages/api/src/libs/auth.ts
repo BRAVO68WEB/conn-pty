@@ -83,3 +83,19 @@ export const whoAmI = async (accessToken: string) => {
     )
     return userinfo
 }
+
+export const tokenInfo = async (accessToken: string) => {
+    let tokenSet : client.IntrospectionResponse = await client.tokenIntrospection(
+        config,
+        accessToken,
+    )
+    return tokenSet
+}
+
+export const requestNewToken = async (refreshToken: string) => {
+    let tokenSet : client.TokenEndpointResponse = await client.refreshTokenGrant(
+        config,
+        refreshToken,
+    )
+    return tokenSet
+}
