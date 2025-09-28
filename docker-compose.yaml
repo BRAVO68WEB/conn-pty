@@ -1,33 +1,23 @@
 version: '3.9'
 
 services:
-  api:
+  app:
     build:
       context: .
       dockerfile: Dockerfile
-      target: api
-    image: conn-pty-api:latest
+      target: app
+    image: conn-pty:latest
     environment:
       - NODE_ENV=production
       - OIDC_ISSUER
       - OIDC_CLIENT_ID
       - OIDC_CLIENT_SECRET
       - OIDC_REDIRECT_URI
-    restart: unless-stopped
-    volumes:
-      - db:/app/data
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: web
-    image: conn-pty-web:latest
-    depends_on:
-      - api
     ports:
       - "8080:80"
     restart: unless-stopped
+    volumes:
+      - db:/app/data
 
 volumes:
   db:

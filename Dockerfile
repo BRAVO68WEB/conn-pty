@@ -47,19 +47,23 @@ CMD ["bun", "run", "packages/api/dist/index.js"]
 
 
 # 3) Web runtime
-FROM nginx:1.27-alpine AS web
+FROM oven/bun:1 AS app
+WORKDIR /app
 ENV NODE_ENV=production
 
-# Static assets
-COPY --from=builder /app/packages/console/dist /usr/share/nginx/html
+# Copy built artifacts from builder
+COPY --from=builder /app/packages/api/dist ./packages/api/dist
+COPY --from=builder /app/packages/api/package.json ./packages/api/package.json
+COPY --from=builder /app/packages/console/dist /var/www/html
 
-# Configure nginx to proxy API and Socket.IO to api:3000
-RUN rm -f /etc/nginx/conf.d/default.conf \
+# Install and configure Nginx inside the same image
+RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/* \
+ && rm -f /etc/nginx/sites-enabled/default /etc/nginx/conf.d/default.conf \
  && printf '%s\n' \
  'server {' \
  '  listen 80;' \
  '  server_name _;' \
- '  root /usr/share/nginx/html;' \
+ '  root /var/www/html;' \
  '  index index.html;' \
  '  # Single Page App routing' \
  '  location / {' \
@@ -68,7 +72,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf \
  '  # REST API' \
  '  location /api/ {' \
  '    proxy_http_version 1.1;' \
- '    proxy_pass http://api:3000/api/;' \
+ '    proxy_pass http://127.0.0.1:3000/api/;' \
  '    proxy_set_header Host $host;' \
  '    proxy_set_header X-Real-IP $remote_addr;' \
  '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
@@ -80,9 +84,11 @@ RUN rm -f /etc/nginx/conf.d/default.conf \
  '    proxy_set_header Upgrade $http_upgrade;' \
  '    proxy_set_header Connection "Upgrade";' \
  '    proxy_set_header Host $host;' \
- '    proxy_pass http://api:3000/ws/ssh;' \
+ '    proxy_pass http://127.0.0.1:3000/ws/ssh;' \
  '  }' \
- '}' > /etc/nginx/conf.d/default.conf
+ '}' > /etc/nginx/sites-enabled/default
 
 EXPOSE 80
-# default CMD of nginx is used
+
+# Start API (background) and Nginx (foreground)
+CMD ["sh", "-c", "bun run packages/api/dist/index.js & nginx -g 'daemon off;'" ]
