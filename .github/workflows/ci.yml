@@ -14,13 +14,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Bun, and dependencies
-        run: |
-          curl -fsSL https://bun.sh/install | bash
+      - name: Setup Bun Runtime
+        uses: antongolub/action-setup-bun@v1
 
-      - name: Install Rust and dependencies
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Installing Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Building with Cargo
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release
 
       - name: Build CI
         run: |
