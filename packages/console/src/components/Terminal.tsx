@@ -135,7 +135,6 @@ function getBrandTheme(): ITheme {
   } as ITheme;
 }
 
-// Removed Socket.IO client import and use WASM client types instead
 import type { SshClient } from '@conn-pty/ssh-client-wasm';
 
 // Initialize wasm-pack module and capture SshClient constructor
@@ -159,7 +158,6 @@ export function Terminal({ sessionId, className }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  // replace Socket.IO ref with raw WebSocket and WASM client refs
   const wsRef = useRef<WebSocket | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const moRef = useRef<MutationObserver | null>(null);
