@@ -52,10 +52,14 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=ref,event=tag
+            type=sha
             type=raw,value=latest
-            author=${{ github.actor }}
-            date={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
-            commit={{sha}}
+          labels: |
+            org.opencontainers.image.authors=${{ github.actor }}
+            org.opencontainers.image.created={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.title=conn-pty
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
       - name: Build and push App image
         uses: docker/build-push-action@v6
