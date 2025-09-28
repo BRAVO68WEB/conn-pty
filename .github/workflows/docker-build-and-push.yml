@@ -2,13 +2,14 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [ master ]
+    tags:
+      - 'v*'
+      - 'v*.*.*'
   workflow_dispatch:
 
 env:
   REGISTRY_GHCR: ghcr.io
-  IMAGE_NAME_API: conn-pty-api
-  IMAGE_NAME_WEB: conn-pty-web
+  IMAGE_NAME_APP: conn-pty
 
 jobs:
   build-and-push:
@@ -39,48 +40,30 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for API
-        id: meta_api
+      - name: Extract metadata (tags, labels) for App
+        id: meta_app
         uses: docker/metadata-action@v5
         with:
           images: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME_API }}
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_API }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME_APP }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_APP }}
           tags: |
-            type=ref,event=branch
-            type=sha
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=tag
             type=raw,value=latest
+            author=${{ github.actor }}
+            date={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
+            commit={{sha}}
 
-      - name: Extract metadata (tags, labels) for Web
-        id: meta_web
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME_WEB }}
-            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_WEB }}
-          tags: |
-            type=ref,event=branch
-            type=sha
-            type=raw,value=latest
-
-      - name: Build and push API image
+      - name: Build and push App image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
-          target: api
+          target: app
           platforms: linux/amd64,linux/arm64
           push: true
-          labels: ${{ steps.meta_api.outputs.labels }}
-          tags: ${{ steps.meta_api.outputs.tags }}
-
-      - name: Build and push Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          target: web
-          platforms: linux/amd64,linux/arm64
-          push: true
-          labels: ${{ steps.meta_web.outputs.labels }}
-          tags: ${{ steps.meta_web.outputs.tags }}
+          labels: ${{ steps.meta_app.outputs.labels }}
+          tags: ${{ steps.meta_app.outputs.tags }}

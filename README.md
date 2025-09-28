@@ -25,11 +25,9 @@ The high‑level flow from your browser to the SSH server:
 To host Conn‑PTY yourself:
 
 ```yaml
-version: '3.9'
-
 services:
   api:
-    image: ghcr.io/bravo68webconn-pty-api:latest
+    image: ghcr.io/bravo68web/conn-pty:latest
     environment:
       - NODE_ENV=production
       - OIDC_ISSUER
@@ -39,14 +37,6 @@ services:
     restart: unless-stopped
     volumes:
       - db:/app/data
-
-  web:
-    image: ghcr.io/bravo68web/conn-pty-web:latest
-    depends_on:
-      - api
-    ports:
-      - "80"
-    restart: unless-stopped
 
 volumes:
   db:
