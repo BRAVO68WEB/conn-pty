@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
@@ -30,6 +30,9 @@ function App() {
             <Route path="/credentials" element={<ProtectedRoute><Layout><CredentialManager /></Layout></ProtectedRoute>} />
             <Route path="/servers/new" element={<AddServer />} />
             <Route path="/credentials/new" element={<AddCredential />} />
+
+            {/* All other routes, redirect to home */}
+            <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </Router>
         <Toaster />

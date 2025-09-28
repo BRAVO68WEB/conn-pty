@@ -7,20 +7,30 @@
 FROM oven/bun:1 AS builder
 WORKDIR /app
 
-# Copy manifests for better cache
-COPY packages/api/package.json packages/api/bun.lock ./packages/api/
-COPY packages/console/package.json packages/console/bun.lockb ./packages/console/
+# Copy manifests for better cache (workspaces)
+COPY package.json bun.lock ./
+COPY packages/api/package.json ./packages/api/package.json
+COPY packages/console/package.json ./packages/console/package.json
+COPY packages/ssh-client-wasm/package.json ./packages/ssh-client-wasm/package.json
 
-# Install deps
-RUN cd packages/api && bun install \
- && cd /app/packages/console && bun install
+# Install deps for all workspaces
+RUN bun install
+
+# Install Rust toolchain for building WASM
+RUN apt-get update && apt-get install -y curl build-essential pkg-config libssl-dev \
+ && curl -fsSL https://sh.rustup.rs -o rustup-init.sh && sh rustup-init.sh -y \
+ && rm -f rustup-init.sh
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add wasm32-unknown-unknown
 
 # Copy sources
 COPY packages/api ./packages/api
 COPY packages/console ./packages/console
+COPY packages/ssh-client-wasm ./packages/ssh-client-wasm
 
-# Build
+# Build (API, WASM client, Console)
 RUN cd packages/api && bun run build \
+ && cd /app/packages/ssh-client-wasm && npm run build \
  && cd /app/packages/console && bun run build
 
 
@@ -63,13 +73,13 @@ RUN rm -f /etc/nginx/conf.d/default.conf \
  '    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' \
  '    proxy_set_header X-Forwarded-Proto $scheme;' \
  '  }' \
- '  # Socket.IO WebSocket' \
- '  location /socket.io/ {' \
+ '  # WebSocket SSH' \
+ '  location /ws/ssh {' \
  '    proxy_http_version 1.1;' \
  '    proxy_set_header Upgrade $http_upgrade;' \
  '    proxy_set_header Connection "Upgrade";' \
  '    proxy_set_header Host $host;' \
- '    proxy_pass http://api:3000;' \
+ '    proxy_pass http://api:3000/ws/ssh;' \
  '  }' \
  '}' > /etc/nginx/conf.d/default.conf
 

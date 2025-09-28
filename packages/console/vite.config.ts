@@ -13,14 +13,16 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         secure: false,
       },
-      // Proxy Socket.IO WebSocket traffic to the API server during development
-      '/socket.io': {
-        target: 'http://localhost:3000',
+      // Proxy WebSocket traffic to the API server during development
+      '/ws/ssh': {
+        target: 'ws://localhost:3000',
         changeOrigin: true,
         ws: true,
       },
     }
   },
+  // Ensure Vite treats WASM files as assets
+  assetsInclude: ['**/*.wasm'],
   plugins: [
     react(),
   ].filter(Boolean),

@@ -6,7 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   LayoutDashboard, 
   Server, 
-  KeyRound, 
+  KeyRound,
+  Terminal,
   Menu,
   X,
   Activity
@@ -34,7 +35,7 @@ const menuItems = [
     href: "/credentials",
     icon: KeyRound,
     description: "Credential management"
-  }
+  },
 ];
 
 export function AppSidebar({ className }: SidebarProps) {
@@ -97,8 +98,8 @@ export function AppSidebar({ className }: SidebarProps) {
       <div className="p-4 border-t border-transparent">
         {!isCollapsed && (
           <div className="text-xs text-muted-foreground">
-            <p>SSH Terminal Manager</p>
-            <p className="mt-1">v1.0.0</p>
+            <p>Conn-PTY @ v1</p>
+            <p className="mt-1">Made with ❤️ by <a href="https://b68.dev">@bravo68web</a></p>
           </div>
         )}
       </div>

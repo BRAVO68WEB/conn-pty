@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { Terminal as XTerminal } from '@xterm/xterm';
 import type { ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
@@ -11,9 +10,6 @@ interface TerminalProps {
   sessionId: string;
   className?: string;
 }
-
-type SSHStatusPayload = { status?: 'connected' | 'disconnected'; sessionId?: string };
-type SSHErrorPayload = { error?: string };
 
 // Utilities to read CSS vars and build a cohesive xterm theme from brand palette
 function parseHslTriplet(triplet: string): { h: number; s: number; l: number } | null {
@@ -139,26 +135,55 @@ function getBrandTheme(): ITheme {
   } as ITheme;
 }
 
+import type { SshClient } from '@conn-pty/ssh-client-wasm';
+
+// Initialize wasm-pack module and capture SshClient constructor
+let WasmSshClient: { new (opts: { ws_url: string }): SshClient } | null = null;
+type WasmInitFn = (module_or_path?: unknown) => Promise<unknown>;
+(async () => {
+  try {
+    const mod = await import('@conn-pty/ssh-client-wasm');
+    const initFn = (mod as { default?: WasmInitFn }).default;
+    if (typeof initFn === 'function') {
+      await initFn();
+    }
+    WasmSshClient = (mod as { SshClient?: { new (opts: { ws_url: string }): SshClient } }).SshClient || null;
+    console.log('WASM SSH client loaded successfully');
+  } catch (e) {
+    console.warn('WASM SSH client failed to load, falling back to raw WS', e);
+  }
+})();
+
 export function Terminal({ sessionId, className }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<XTerminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const moRef = useRef<MutationObserver | null>(null);
+  const wasmClientRef = useRef<{
+    send_text: (data: string) => void;
+    resize: (cols: number, rows: number) => void;
+    close: () => void;
+    on_output: (cb: (text: string) => void) => void;
+    on_open: (cb: () => void) => void;
+    on_close: (cb: () => void) => void;
+    on_error: (cb: () => void) => void;
+    connect_websocket: () => void;
+  } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Initialize terminal with dynamic, brand-aligned theme
     const term = new XTerminal({
       cursorBlink: true,
       fontSize: 14,
-      fontFamily: "ui-monospace, Menlo, Monaco, 'MesloLGS NF', 'Fira Code', 'JetBrains Mono', monospace",
-      theme: getBrandTheme(),
+      fontFamily:
+        "ui-monospace, Menlo, Monaco, 'MesloLGS NF', 'Fira Code', 'JetBrains Mono', monospace",
       allowTransparency: true,
-      letterSpacing: 0,
+      theme: getBrandTheme(),
       lineHeight: 1.1,
+      letterSpacing: 0,
     });
     const fit = new FitAddon();
     const links = new WebLinksAddon();
@@ -170,73 +195,162 @@ export function Terminal({ sessionId, className }: TerminalProps) {
     termRef.current = term;
     fitRef.current = fit;
 
-    // Keep theme in sync if the app toggles themes (e.g., class changes on <html>)
+    // Keep theme in sync if the app toggles themes
     moRef.current = new MutationObserver(() => {
       const nextTheme: ITheme = getBrandTheme();
       term.options.theme = nextTheme;
     });
     moRef.current.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
-    // Connect Socket.IO
-    const socket = io('/', {
-      // Send session id on connection
-      auth: { session_id: sessionId },
-      transports: ['websocket'],
-      path: '/socket.io',
-      withCredentials: false,
-    });
-
-    socketRef.current = socket;
-
     const writeStatus = (msg: string) => term.writeln(`\x1b[90m${msg}\x1b[0m`);
 
-    socket.on('connect', () => {
-      writeStatus('Socket connected. Establishing SSH...');
-      socket.emit('ssh-connect', {});
-    });
+    // Build WS URL using same-origin; dev uses Vite proxy to :3000, prod uses Nginx to api:3000
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const host = window.location.host; // includes port
+    const wsUrl = `${proto}://${host}/ws/ssh?session_id=${encodeURIComponent(sessionId)}`;
 
-    socket.on('ssh-status', (payload: SSHStatusPayload) => {
-      if (payload?.status === 'connected') {
-        writeStatus('SSH connected.');
-      } else if (payload?.status === 'disconnected') {
-        writeStatus('SSH disconnected.');
+    const connectRawWs = () => {
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        writeStatus('WS connected. Establishing SSH...');
+        ws.send(JSON.stringify({ type: 'connect' }));
+        fit.fit();
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      };
+
+      ws.onmessage = (ev) => {
+        const data = ev.data;
+        if (typeof data === 'string') {
+          try {
+            const payload = JSON.parse(data) as { type?: string; status?: 'connected' | 'disconnected'; error?: string };
+            if (payload?.type === 'ssh-status') {
+              if (payload.status === 'connected') writeStatus('SSH connected.');
+              if (payload.status === 'disconnected') writeStatus('SSH disconnected.');
+              return;
+            }
+            if (payload?.type === 'ssh-error') {
+              writeStatus(`Error: ${payload.error}`);
+              return;
+            }
+            if (payload?.type === 'pong') return;
+            // Unknown JSON
+            writeStatus(String(data));
+            return;
+          } catch {
+            term.write(data);
+            return;
+          }
+        }
+        if (data instanceof ArrayBuffer) {
+          term.write(new TextDecoder().decode(new Uint8Array(data)));
+        }
+      };
+
+      ws.onerror = () => {
+        writeStatus('WebSocket error.');
+      };
+
+      ws.onclose = () => {
+        writeStatus('WS closed.');
+      };
+    };
+
+    const connectWasm = async () => {
+      if (!WasmSshClient) {
+        connectRawWs();
+        return;
       }
-    });
+      try {
+        const client = new WasmSshClient({ ws_url: wsUrl });
+        wasmClientRef.current = client;
 
-    socket.on('ssh-data', (data: string) => {
-      term.write(data);
-    });
+        client.on_output((text: string) => {
+          try {
+            const payload = JSON.parse(text) as { type?: string; status?: 'connected' | 'disconnected'; error?: string };
+            if (payload?.type === 'ssh-status') {
+              if (payload.status === 'connected') writeStatus('SSH connected.');
+              if (payload.status === 'disconnected') writeStatus('SSH disconnected.');
+              return;
+            }
+            if (payload?.type === 'ssh-error') {
+              writeStatus(`Error: ${payload.error}`);
+              return;
+            }
+            if (payload?.type === 'pong') return;
+            writeStatus(text);
+            return;
+          } catch {
+            // non-JSON, treat as stream output
+            term.write(text);
+          }
+        });
 
-    socket.on('ssh-error', (payload: SSHErrorPayload) => {
-      writeStatus(`Error: ${payload?.error || 'Unknown error'}`);
-    });
+        client.on_open(() => {
+          writeStatus('WASM WS connected. Establishing SSH...');
+          client.send_text(JSON.stringify({ type: 'connect' }));
+          fit.fit();
+          client.resize(term.cols, term.rows);
+        });
 
-    socket.on('disconnect', () => {
-      writeStatus('Socket disconnected.');
-    });
+        client.on_close(() => {
+          writeStatus('WASM WS closed.');
+        });
+
+        client.on_error(() => {
+          writeStatus('WASM WebSocket error.');
+        });
+
+        client.connect_websocket();
+      } catch (err) {
+        writeStatus('Failed to initialize WASM client, falling back to raw WS.');
+        connectRawWs();
+      }
+    };
 
     // Relay keyboard input
     term.onData((data) => {
-      socket.emit('ssh-input', data);
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', data }));
+      }
+      const wc = wasmClientRef.current;
+      if (wc) {
+        try { wc.send_text(JSON.stringify({ type: 'input', data })); } catch (e) { /* no-op */ void e; }
+      }
     });
 
-    // Fit on container resize (more reliable than only window resize)
+    // Fit on container resize
     const onResize = () => {
       fit.fit();
-      socket.emit('ssh-resize', { cols: term.cols, rows: term.rows });
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      }
+      const wc = wasmClientRef.current;
+      if (wc) {
+        try { wc.resize(term.cols, term.rows); } catch (e) { /* no-op */ void e; }
+      }
     };
     roRef.current = new ResizeObserver(onResize);
-    roRef.current.observe(containerRef.current);
+    roRef.current.observe(containerRef.current!);
     window.addEventListener('resize', onResize);
 
-    // Initial status
+    // Initial status and connect
     writeStatus(`Session ID: ${sessionId}`);
+    void connectWasm();
 
     return () => {
       window.removeEventListener('resize', onResize);
       roRef.current?.disconnect();
       moRef.current?.disconnect();
-      socket.disconnect();
+      try { wasmClientRef.current?.close(); } catch (e) { /* no-op */ void e; }
+      const ws = wsRef.current;
+      if (ws) {
+        try { ws.close(); } catch (e) { /* no-op */ void e; }
+      }
       term.dispose();
     };
   }, [sessionId]);

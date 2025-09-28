@@ -26,7 +26,7 @@ services:
     depends_on:
       - api
     ports:
-      - "80"
+      - "8080:80"
     restart: unless-stopped
 
 volumes:
