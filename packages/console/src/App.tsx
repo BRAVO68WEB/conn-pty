@@ -11,6 +11,7 @@ import CredentialManager from "@/pages/CredentialManager";
 import AddServer from "./pages/AddServer";
 import AddCredential from "./pages/AddCredential";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import SSHDirect from "@/pages/SSHDirect";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,8 @@ function App() {
             <Route path="/credentials" element={<ProtectedRoute><Layout><CredentialManager /></Layout></ProtectedRoute>} />
             <Route path="/servers/new" element={<AddServer />} />
             <Route path="/credentials/new" element={<AddCredential />} />
+            {/* New direct SSH page */}
+            <Route path="/ssh-direct" element={<ProtectedRoute><Layout><SSHDirect /></Layout></ProtectedRoute>} />
           </Routes>
         </Router>
         <Toaster />

@@ -1,0 +1,18 @@
+{
+  "name": "@conn-pty/ssh-client-wasm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WASM-based SSH client (WebSocket transport)",
+  "type": "module",
+  "exports": "./pkg/ssh_client_wasm.js",
+  "main": "./pkg/ssh_client_wasm.js",
+  "types": "./index.d.ts",
+  "files": ["pkg", "index.d.ts"],
+  "scripts": {
+    "build:wasm": "wasm-pack build --target web --out-dir pkg",
+    "build": "npm run build:wasm"
+  },
+  "devDependencies": {
+    "wasm-pack": "^0.13.1"
+  }
+}

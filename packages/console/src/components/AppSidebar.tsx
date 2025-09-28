@@ -6,7 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   LayoutDashboard, 
   Server, 
-  KeyRound, 
+  KeyRound,
+  Terminal,
   Menu,
   X,
   Activity
@@ -34,7 +35,13 @@ const menuItems = [
     href: "/credentials",
     icon: KeyRound,
     description: "Credential management"
-  }
+  },
+  {
+    title: "SSH Direct",
+    href: "/ssh-direct",
+    icon: Terminal,
+    description: "Direct SSH access"
+  },
 ];
 
 export function AppSidebar({ className }: SidebarProps) {

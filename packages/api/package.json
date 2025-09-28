@@ -8,12 +8,10 @@
   },
   "dependencies": {
     "@excalidraw/random-username": "^1.2.0",
-    "@socket.io/bun-engine": "^0.0.2",
     "esbuild": "^0.25.10",
     "glob": "^11.0.3",
     "hono": "^4.9.8",
     "openid-client": "^6.8.0",
-    "socket.io": "^4.8.1",
     "ssh2": "^1.17.0"
   },
   "devDependencies": {
