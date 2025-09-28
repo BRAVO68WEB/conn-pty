@@ -30,7 +30,7 @@ COPY packages/ssh-client-wasm ./packages/ssh-client-wasm
 
 # Build (API, WASM client, Console)
 RUN cd packages/api && bun run build \
- && cd /app/packages/ssh-client-wasm && npm run build \
+ && cd /app/packages/ssh-client-wasm && bun run build \
  && cd /app/packages/console && bun run build
 
 

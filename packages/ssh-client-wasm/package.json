@@ -10,7 +10,7 @@
   "files": ["pkg", "index.d.ts"],
   "scripts": {
     "build:wasm": "wasm-pack build --target web --out-dir pkg",
-    "build": "npm run build:wasm"
+    "build": "bun run build:wasm"
   },
   "devDependencies": {
     "wasm-pack": "^0.13.1"
