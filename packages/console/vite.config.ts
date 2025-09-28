@@ -11,14 +11,15 @@ export default defineConfig(({ mode }) => ({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-        secure: false,
+        ws: false,
+        headers: { 'Connection': 'keep-alive' },
       },
-      // Proxy WebSocket traffic to the API server during development
       '/ws/ssh': {
-        target: 'ws://localhost:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         ws: true,
-      },
+        headers: { 'Connection': 'Upgrade', 'Upgrade': 'websocket' },
+      }
     }
   },
   // Ensure Vite treats WASM files as assets

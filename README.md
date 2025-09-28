@@ -21,6 +21,38 @@ The high‑level flow from your browser to the SSH server:
 4. 🔐 API bridges WebSocket messages to ssh2 and streams terminal I/O
 5. ⌨️ User input, resizing, and status/errors flow bidirectionally in real time
 
+## 🚀 Self‑Hosting
+To host Conn‑PTY yourself:
+
+```yaml
+version: '3.9'
+
+services:
+  api:
+    image: ghcr.io/bravo68webconn-pty-api:latest
+    environment:
+      - NODE_ENV=production
+      - OIDC_ISSUER
+      - OIDC_CLIENT_ID
+      - OIDC_CLIENT_SECRET
+      - OIDC_REDIRECT_URI
+    restart: unless-stopped
+    volumes:
+      - db:/app/data
+
+  web:
+    image: ghcr.io/bravo68web/conn-pty-web:latest
+    depends_on:
+      - api
+    ports:
+      - "80"
+    restart: unless-stopped
+
+volumes:
+  db:
+    driver: local
+```
+
 ## 📦 Packages
 - packages/api — Bun/Hono API, WebSocket SSH handler → ./packages/api
 - packages/console — React/Vite UI, xterm, WASM client integration → ./packages/console

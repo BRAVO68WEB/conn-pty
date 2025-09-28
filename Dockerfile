@@ -67,6 +67,7 @@ RUN rm -f /etc/nginx/conf.d/default.conf \
  '  }' \
  '  # REST API' \
  '  location /api/ {' \
+ '    proxy_http_version 1.1;' \
  '    proxy_pass http://api:3000/api/;' \
  '    proxy_set_header Host $host;' \
  '    proxy_set_header X-Real-IP $remote_addr;' \
